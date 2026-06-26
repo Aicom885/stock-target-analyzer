@@ -1,5 +1,5 @@
 [build]
-  publish = "html file"
+  publish = "public"
   functions = "netlify/functions"
 
 [[headers]]
