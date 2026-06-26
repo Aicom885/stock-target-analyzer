@@ -184,7 +184,3 @@ export default async (req) => {
   }
 };
 
-export const config = {
-  path: "/api/analyze",
-  method: ["POST"]
-};
