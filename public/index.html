@@ -1,1 +1,319 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>目標價快算</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #111827;
+      --muted: #667085;
+      --line: #d9dee7;
+      --soft-line: #edf0f4;
+      --green: #087443;
+      --green-soft: #e7f7ee;
+      --red: #ba1a1a;
+      --red-soft: #fff0ef;
+      --amber: #9a6700;
+      --amber-soft: #fff7dd;
+      --blue: #174ea6;
+      --blue-soft: #edf4ff;
+      --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    }
 
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); letter-spacing: 0; }
+    button, input { font: inherit; }
+    a { color: var(--blue); text-decoration: none; word-break: break-word; }
+
+    .app { width: min(100%, 900px); margin: 0 auto; min-height: 100vh; padding: 18px 14px 78px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-mark { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; color: #fff; background: #111827; flex: 0 0 auto; }
+    .brand h1 { margin: 0; font-size: 22px; line-height: 1.15; font-weight: 850; }
+    .brand p { margin: 2px 0 0; font-size: 12px; color: var(--muted); line-height: 1.3; }
+    .date-chip { border: 1px solid var(--line); color: var(--muted); background: var(--panel); border-radius: 8px; padding: 7px 9px; font-size: 12px; white-space: nowrap; }
+
+    .search-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; box-shadow: var(--shadow); margin-bottom: 12px; }
+    .search-row { display: grid; grid-template-columns: 1fr 44px; gap: 9px; }
+    .ticker-input { min-width: 0; height: 44px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: #fff; color: var(--ink); font-size: 16px; font-weight: 750; text-transform: uppercase; outline: none; }
+    .ticker-input:focus { border-color: #9bb8e8; box-shadow: 0 0 0 3px rgba(23, 78, 166, 0.12); }
+    .icon-button { height: 44px; width: 44px; border: 0; border-radius: 8px; background: #111827; color: #fff; display: grid; place-items: center; cursor: pointer; }
+    .icon-button:disabled { opacity: 0.55; cursor: wait; }
+    .quick-row { display: flex; gap: 8px; overflow-x: auto; padding-top: 10px; scrollbar-width: none; }
+    .quick-row::-webkit-scrollbar { display: none; }
+    .quick-row button { border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #273244; min-height: 34px; padding: 0 10px; font-size: 13px; font-weight: 750; white-space: nowrap; cursor: pointer; }
+
+    .notice { border: 1px solid #f2d486; background: var(--amber-soft); color: #6f4b00; border-radius: 8px; padding: 11px 12px; font-size: 13px; line-height: 1.45; margin-bottom: 12px; }
+    .notice.error { border-color: #f0b4ae; background: var(--red-soft); color: #8f1111; }
+    .notice.hidden { display: none; }
+
+    .result-grid { display: grid; gap: 12px; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .panel.pad { padding: 14px; }
+    .verdict { display: grid; gap: 13px; box-shadow: var(--shadow); }
+    .verdict-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; border-bottom: 1px solid var(--soft-line); padding-bottom: 12px; }
+    .stock-name { margin: 0; font-size: 20px; line-height: 1.2; font-weight: 850; }
+    .stock-meta { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .zone { text-align: right; font-size: 12px; color: var(--muted); min-width: 98px; }
+    .zone strong { display: block; margin-top: 4px; font-size: 14px; line-height: 1.25; color: var(--green); }
+    .score-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metric { border: 1px solid var(--soft-line); border-radius: 8px; padding: 10px; min-height: 76px; background: #fbfcfd; }
+    .metric label { display: block; color: var(--muted); font-size: 12px; line-height: 1.25; margin-bottom: 5px; }
+    .metric strong { display: block; font-size: 22px; line-height: 1.1; font-weight: 850; }
+    .metric small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.3; }
+    .band { display: grid; gap: 7px; padding-top: 2px; }
+    .bar { position: relative; height: 12px; border-radius: 999px; background: linear-gradient(90deg, #dff5e7 0 33%, #eef3fb 33% 66%, #ffe5e1 66% 100%); border: 1px solid rgba(17, 24, 39, 0.08); }
+    .pin { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 50%; background: #111827; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(17, 24, 39, 0.26); }
+    .band-labels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; color: var(--muted); font-size: 11px; line-height: 1.25; }
+    .band-labels span:nth-child(2) { text-align: center; }
+    .band-labels span:nth-child(3) { text-align: right; }
+    .call { border-left: 4px solid var(--green); background: var(--green-soft); padding: 10px 11px; border-radius: 8px; font-size: 14px; line-height: 1.55; color: #084c2d; font-weight: 750; }
+
+    .section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 13px 14px 10px; border-bottom: 1px solid var(--soft-line); }
+    .section-title h2 { margin: 0; font-size: 15px; line-height: 1.2; font-weight: 850; }
+    .section-title span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .table-wrap { width: 100%; overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; min-width: 560px; background: #fff; }
+    th, td { border-bottom: 1px solid var(--soft-line); padding: 10px 12px; text-align: left; vertical-align: top; font-size: 13px; line-height: 1.35; }
+    th { color: #475467; font-size: 12px; font-weight: 800; background: #fbfcfd; }
+    td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .tag { display: inline-block; border-radius: 6px; padding: 3px 7px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+    .tag.high { color: var(--green); background: var(--green-soft); }
+    .tag.mid { color: var(--amber); background: var(--amber-soft); }
+    .tag.low { color: var(--red); background: var(--red-soft); }
+    .summary { padding: 14px; color: #273244; font-size: 13px; line-height: 1.55; }
+    .formula-grid { display: grid; gap: 9px; padding: 14px; }
+    .formula { display: grid; grid-template-columns: 76px 1fr; gap: 9px; align-items: start; font-size: 13px; line-height: 1.45; border-bottom: 1px solid var(--soft-line); padding-bottom: 9px; }
+    .formula:last-child { border-bottom: 0; padding-bottom: 0; }
+    .source-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; font-size: 13px; line-height: 1.35; }
+    .loading { display: grid; gap: 10px; padding: 18px; }
+    .skeleton { height: 16px; border-radius: 6px; background: linear-gradient(90deg, #edf0f4, #f8fafc, #edf0f4); background-size: 180% 100%; animation: pulse 1.15s infinite linear; }
+    .skeleton.wide { height: 90px; }
+    @keyframes pulse { from { background-position: 100% 0; } to { background-position: -80% 0; } }
+
+    .footer-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; border-top: 1px solid var(--line); background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(14px); }
+    .footer-inner { width: min(100%, 900px); margin: 0 auto; display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+    .footer-inner strong { color: var(--ink); }
+
+    @media (min-width: 760px) {
+      .app { padding: 26px 22px 82px; }
+      .result-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+      .verdict, .panel.full { grid-column: 1 / -1; }
+      .score-row { grid-template-columns: repeat(4, 1fr); }
+      .brand h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+            <path d="M4 18h16M6 15l4-4 3 3 5-7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>目標價快算</h1>
+          <p>輸入股票代號，AI 搜尋後產生今年目標價分析</p>
+        </div>
+      </div>
+      <div class="date-chip">即時搜尋</div>
+    </header>
+
+    <section class="search-panel" aria-label="股票查詢">
+      <form class="search-row" id="searchForm">
+        <input class="ticker-input" id="tickerInput" inputmode="text" autocomplete="off" placeholder="輸入代號，如 2330、NVDA" value="2330" />
+        <button class="icon-button" id="submitButton" type="submit" title="查詢" aria-label="查詢">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </form>
+      <div class="quick-row" aria-label="快速選擇股票">
+        <button type="button" data-ticker="2330">2330 台積電</button>
+        <button type="button" data-ticker="2317">2317 鴻海</button>
+        <button type="button" data-ticker="8299">8299 群聯</button>
+        <button type="button" data-ticker="NVDA">NVDA</button>
+      </div>
+    </section>
+
+    <div class="notice" id="notice">這是本機工具：API key 只在伺服器端讀取，不會送到手機瀏覽器。</div>
+    <section class="result-grid" id="result"></section>
+  </main>
+
+  <footer class="footer-bar">
+    <div class="footer-inner">
+      <span><strong>OpenAI API</strong>：後端代查資料</span>
+      <span>非投資建議，請自行查證</span>
+    </div>
+  </footer>
+
+  <script>
+    const result = document.querySelector("#result");
+    const input = document.querySelector("#tickerInput");
+    const form = document.querySelector("#searchForm");
+    const notice = document.querySelector("#notice");
+    const submitButton = document.querySelector("#submitButton");
+    const formatter = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 2 });
+
+    function money(value, currency) {
+      const prefix = currency === "USD" ? "$" : "";
+      return `${prefix}${formatter.format(value)}`;
+    }
+
+    function confidenceClass(value = "") {
+      if (value.includes("低")) return "low";
+      if (value.includes("中")) return "mid";
+      return "high";
+    }
+
+    function zoneColor(zone = "") {
+      if (zone.includes("昂貴")) return "var(--red)";
+      if (zone.includes("合理至")) return "var(--amber)";
+      return "var(--green)";
+    }
+
+    function pinPosition(price, cheap, expensive) {
+      const lower = cheap * 0.86;
+      const upper = expensive * 1.04;
+      const pct = ((price - lower) / (upper - lower)) * 100;
+      return Math.max(3, Math.min(97, pct));
+    }
+
+    function setLoading(ticker) {
+      notice.className = "notice";
+      notice.textContent = `正在搜尋 ${ticker} 的現價、同業 Forward P/E、外資 EPS 預估，通常需要 20-60 秒。`;
+      result.innerHTML = `
+        <article class="panel loading">
+          <div class="skeleton" style="width:52%"></div>
+          <div class="skeleton wide"></div>
+          <div class="skeleton" style="width:86%"></div>
+          <div class="skeleton" style="width:66%"></div>
+        </article>
+      `;
+    }
+
+    function renderError(message) {
+      notice.className = "notice error";
+      notice.textContent = message || "分析失敗，請稍後再試。";
+      result.innerHTML = "";
+    }
+
+    function render(data) {
+      const pin = pinPosition(data.price, data.cheapPrice, data.expensivePrice);
+      const upside = data.upsideToFairPct;
+      notice.className = "notice";
+      notice.textContent = data.confidenceNote || "資料來源信心度不一時已在表格標註。";
+
+      result.innerHTML = `
+        <article class="panel pad verdict">
+          <div class="verdict-head">
+            <div>
+              <h2 class="stock-name">${data.ticker} ${data.name}</h2>
+              <div class="stock-meta">現價 ${money(data.price, data.currency)}，${data.priceDate} ｜ ${data.epsBasis}</div>
+            </div>
+            <div class="zone">目前區間<strong style="color:${zoneColor(data.currentZone)}">${data.currentZone}</strong></div>
+          </div>
+          <div class="score-row">
+            <div class="metric"><label>便宜價</label><strong>${money(data.cheapPrice, data.currency)}</strong><small>合理價 × 0.8</small></div>
+            <div class="metric"><label>合理價</label><strong>${money(data.fairPrice, data.currency)}</strong><small>EPS × 同業錨點</small></div>
+            <div class="metric"><label>昂貴價</label><strong>${money(data.expensivePrice, data.currency)}</strong><small>樂觀 EPS × 牛市倍數</small></div>
+            <div class="metric"><label>距合理價</label><strong style="color:${upside >= 0 ? "var(--green)" : "var(--red)"}">${upside >= 0 ? "+" : ""}${upside.toFixed(1)}%</strong><small>${upside >= 0 ? "低於合理價" : "高於合理價"}</small></div>
+          </div>
+          <div class="band" aria-label="估值區間">
+            <div class="bar"><span class="pin" style="left:${pin}%"></span></div>
+            <div class="band-labels">
+              <span>便宜價 ${money(data.cheapPrice, data.currency)}</span>
+              <span>合理價 ${money(data.fairPrice, data.currency)}</span>
+              <span>昂貴價 ${money(data.expensivePrice, data.currency)}</span>
+            </div>
+          </div>
+          <div class="call">${data.verdict}</div>
+        </article>
+
+        <article class="panel">
+          <div class="section-title"><h2>同業 Forward P/E 錨點</h2><span>Auto-Anchor</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>公司</th><th>關聯性</th><th class="num">Forward P/E</th><th>來源</th></tr></thead>
+              <tbody>${data.peers.map(row => `<tr><td>${row.company || ""}</td><td>${row.relationship || ""}</td><td class="num">${row.forwardPe || ""}</td><td>${row.source || ""}</td></tr>`).join("")}</tbody>
+            </table>
+          </div>
+          <div class="summary">${data.peerAnchorBasis}</div>
+        </article>
+
+        <article class="panel">
+          <div class="section-title"><h2>EPS Mining</h2><span>外資/共識</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>機構/來源</th><th class="num">EPS</th><th>時間</th><th>信心度</th><th>來源</th></tr></thead>
+              <tbody>${data.epsSources.map(row => `<tr><td>${row.institution || ""}</td><td class="num">${row.eps || ""}</td><td>${row.publishedAt || ""}</td><td><span class="tag ${confidenceClass(row.confidence)}">${row.confidence || "中"}</span></td><td>${row.source || ""}</td></tr>`).join("")}</tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel full">
+          <div class="section-title"><h2>定價計算</h2><span>${data.currency}</span></div>
+          <div class="formula-grid">
+            <div class="formula"><strong>便宜價</strong><span>${money(data.cheapPrice, data.currency)}</span></div>
+            <div class="formula"><strong>合理價</strong><span>${money(data.fairPrice, data.currency)}</span></div>
+            <div class="formula"><strong>昂貴價</strong><span>${money(data.expensivePrice, data.currency)}</span></div>
+          </div>
+        </article>
+
+        <article class="panel full">
+          <div class="section-title"><h2>資料來源</h2><span>${data.sources.length} 筆</span></div>
+          <div class="summary">
+            <ul class="source-list">
+              ${data.sources.map(source => `<li><a href="${source.url}" target="_blank" rel="noopener">${source.title || source.url}</a></li>`).join("")}
+            </ul>
+          </div>
+        </article>
+      `;
+    }
+
+    async function analyze(ticker) {
+      const cleanTicker = ticker.trim();
+      if (!cleanTicker) return;
+      submitButton.disabled = true;
+      setLoading(cleanTicker);
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ticker: cleanTicker })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "分析失敗。");
+        render(payload.analysis);
+      } catch (error) {
+        renderError(error.message);
+      } finally {
+        submitButton.disabled = false;
+      }
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      analyze(input.value);
+    });
+
+    input.addEventListener("input", () => {
+      input.value = input.value.toUpperCase();
+    });
+
+    document.querySelectorAll("[data-ticker]").forEach(button => {
+      button.addEventListener("click", () => {
+        input.value = button.dataset.ticker;
+        analyze(button.dataset.ticker);
+      });
+    });
+  </script>
+</body>
+</html>
