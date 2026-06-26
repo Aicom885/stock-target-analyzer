@@ -289,6 +289,12 @@
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ ticker: cleanTicker })
         });
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error(response.status === 504
+            ? "Netlify Function 超時。請再試一次，或改用較熱門股票代號；若持續發生，需要升級成背景任務版本。"
+            : `伺服器回傳非 JSON 內容（HTTP ${response.status}）。請確認 Netlify Function 與 redirect 已部署。`);
+        }
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "分析失敗。");
         render(payload.analysis);
