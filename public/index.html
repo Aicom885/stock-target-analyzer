@@ -162,6 +162,16 @@
     const submitButton = document.querySelector("#submitButton");
     const formatter = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 2 });
 
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[character]);
+    }
+
     function money(value, currency) {
       const prefix = currency === "USD" ? "$" : "";
       return `${prefix}${formatter.format(value)}`;
@@ -215,26 +225,26 @@
         <article class="panel pad verdict">
           <div class="verdict-head">
             <div>
-              <h2 class="stock-name">${data.ticker} ${data.name}</h2>
-              <div class="stock-meta">現價 ${money(data.price, data.currency)}，${data.priceDate} ｜ ${data.epsBasis}</div>
+              <h2 class="stock-name">${escapeHtml(data.ticker)} ${escapeHtml(data.name)}</h2>
+              <div class="stock-meta">現價 ${escapeHtml(money(data.price, data.currency))}，${escapeHtml(data.priceDate)} ｜ ${escapeHtml(data.epsBasis)}</div>
             </div>
-            <div class="zone">目前區間<strong style="color:${zoneColor(data.currentZone)}">${data.currentZone}</strong></div>
+            <div class="zone">目前區間<strong style="color:${zoneColor(data.currentZone)}">${escapeHtml(data.currentZone)}</strong></div>
           </div>
           <div class="score-row">
-            <div class="metric"><label>便宜價</label><strong>${money(data.cheapPrice, data.currency)}</strong><small>合理價 × 0.8</small></div>
-            <div class="metric"><label>合理價</label><strong>${money(data.fairPrice, data.currency)}</strong><small>EPS × 同業錨點</small></div>
-            <div class="metric"><label>昂貴價</label><strong>${money(data.expensivePrice, data.currency)}</strong><small>樂觀 EPS × 牛市倍數</small></div>
+            <div class="metric"><label>便宜價</label><strong>${escapeHtml(money(data.cheapPrice, data.currency))}</strong><small>合理價 × 0.8</small></div>
+            <div class="metric"><label>合理價</label><strong>${escapeHtml(money(data.fairPrice, data.currency))}</strong><small>EPS × 同業錨點</small></div>
+            <div class="metric"><label>昂貴價</label><strong>${escapeHtml(money(data.expensivePrice, data.currency))}</strong><small>樂觀 EPS × 牛市倍數</small></div>
             <div class="metric"><label>距合理價</label><strong style="color:${upside >= 0 ? "var(--green)" : "var(--red)"}">${upside >= 0 ? "+" : ""}${upside.toFixed(1)}%</strong><small>${upside >= 0 ? "低於合理價" : "高於合理價"}</small></div>
           </div>
           <div class="band" aria-label="估值區間">
             <div class="bar"><span class="pin" style="left:${pin}%"></span></div>
             <div class="band-labels">
-              <span>便宜價 ${money(data.cheapPrice, data.currency)}</span>
-              <span>合理價 ${money(data.fairPrice, data.currency)}</span>
-              <span>昂貴價 ${money(data.expensivePrice, data.currency)}</span>
+              <span>便宜價 ${escapeHtml(money(data.cheapPrice, data.currency))}</span>
+              <span>合理價 ${escapeHtml(money(data.fairPrice, data.currency))}</span>
+              <span>昂貴價 ${escapeHtml(money(data.expensivePrice, data.currency))}</span>
             </div>
           </div>
-          <div class="call">${data.verdict}</div>
+          <div class="call">${escapeHtml(data.verdict)}</div>
         </article>
 
         <article class="panel">
@@ -242,10 +252,10 @@
           <div class="table-wrap">
             <table>
               <thead><tr><th>公司</th><th>關聯性</th><th class="num">Forward P/E</th><th>來源</th></tr></thead>
-              <tbody>${data.peers.map(row => `<tr><td>${row.company || ""}</td><td>${row.relationship || ""}</td><td class="num">${row.forwardPe || ""}</td><td>${row.source || ""}</td></tr>`).join("")}</tbody>
+              <tbody>${data.peers.map(row => `<tr><td>${escapeHtml(row.company)}</td><td>${escapeHtml(row.relationship)}</td><td class="num">${escapeHtml(row.forwardPe)}</td><td>${escapeHtml(row.source)}</td></tr>`).join("")}</tbody>
             </table>
           </div>
-          <div class="summary">${data.peerAnchorBasis}</div>
+          <div class="summary">${escapeHtml(data.peerAnchorBasis)}</div>
         </article>
 
         <article class="panel">
@@ -253,17 +263,17 @@
           <div class="table-wrap">
             <table>
               <thead><tr><th>機構/來源</th><th class="num">EPS</th><th>時間</th><th>信心度</th><th>來源</th></tr></thead>
-              <tbody>${data.epsSources.map(row => `<tr><td>${row.institution || ""}</td><td class="num">${row.eps || ""}</td><td>${row.publishedAt || ""}</td><td><span class="tag ${confidenceClass(row.confidence)}">${row.confidence || "中"}</span></td><td>${row.source || ""}</td></tr>`).join("")}</tbody>
+              <tbody>${data.epsSources.map(row => `<tr><td>${escapeHtml(row.institution)}</td><td class="num">${escapeHtml(row.eps)}</td><td>${escapeHtml(row.publishedAt)}</td><td><span class="tag ${confidenceClass(row.confidence)}">${escapeHtml(row.confidence || "中")}</span></td><td>${escapeHtml(row.source)}</td></tr>`).join("")}</tbody>
             </table>
           </div>
         </article>
 
         <article class="panel full">
-          <div class="section-title"><h2>定價計算</h2><span>${data.currency}</span></div>
+          <div class="section-title"><h2>定價計算</h2><span>${escapeHtml(data.currency)}</span></div>
           <div class="formula-grid">
-            <div class="formula"><strong>便宜價</strong><span>${money(data.cheapPrice, data.currency)}</span></div>
-            <div class="formula"><strong>合理價</strong><span>${money(data.fairPrice, data.currency)}</span></div>
-            <div class="formula"><strong>昂貴價</strong><span>${money(data.expensivePrice, data.currency)}</span></div>
+            <div class="formula"><strong>便宜價</strong><span>${escapeHtml(money(data.cheapPrice, data.currency))}</span></div>
+            <div class="formula"><strong>合理價</strong><span>${escapeHtml(money(data.fairPrice, data.currency))}</span></div>
+            <div class="formula"><strong>昂貴價</strong><span>${escapeHtml(money(data.expensivePrice, data.currency))}</span></div>
           </div>
         </article>
 
@@ -271,7 +281,7 @@
           <div class="section-title"><h2>資料來源</h2><span>${data.sources.length} 筆</span></div>
           <div class="summary">
             <ul class="source-list">
-              ${data.sources.map(source => `<li><a href="${source.url}" target="_blank" rel="noopener">${source.title || source.url}</a></li>`).join("")}
+              ${data.sources.map(source => `<li><a href="${escapeHtml(source.url)}" target="_blank" rel="noopener">${escapeHtml(source.title || source.url)}</a></li>`).join("")}
             </ul>
           </div>
         </article>
