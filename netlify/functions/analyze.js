@@ -59,7 +59,42 @@ function median(values) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function normalizeAnalysis(data, fallbackTicker) {
+function collectSources(data, extraSources = []) {
+  const candidates = [
+    ...(Array.isArray(data.sources) ? data.sources : []),
+    ...extraSources,
+    ...(Array.isArray(data.peers)
+      ? data.peers.map((peer) => ({ title: peer.source, url: peer.url }))
+      : []),
+    ...(Array.isArray(data.epsSources)
+      ? data.epsSources.map((item) => ({ title: item.source, url: item.url }))
+      : [])
+  ];
+  const seen = new Set();
+
+  return candidates.filter((source) => {
+    const url = String(source?.url || "").trim();
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) return false;
+    seen.add(url);
+    source.title = String(source.title || url).trim();
+    source.url = url;
+    return true;
+  });
+}
+
+function extractAnnotationSources(annotations) {
+  if (!Array.isArray(annotations)) return [];
+
+  return annotations
+    .map((annotation) => annotation?.url_citation || annotation)
+    .filter((citation) => citation?.url)
+    .map((citation) => ({
+      title: citation.title || citation.url,
+      url: citation.url
+    }));
+}
+
+function normalizeAnalysis(data, fallbackTicker, extraSources = []) {
   if (data.error) throw new Error(String(data.error));
 
   const peers = Array.isArray(data.peers) ? data.peers : [];
@@ -107,13 +142,18 @@ function normalizeAnalysis(data, fallbackTicker) {
     confidenceNote: data.confidenceNote || "",
     peers,
     epsSources: Array.isArray(data.epsSources) ? data.epsSources : [],
-    sources: Array.isArray(data.sources) ? data.sources : []
+    sources: collectSources(data, extraSources)
   };
 
   if (!result.priceDate) throw new Error("模型未提供現價日期");
   if (!result.currency) throw new Error("模型未提供交易幣別");
+  if (result.peers.filter((peer) => String(peer.source || "").trim()).length < 2) {
+    throw new Error("至少兩家同業缺少可核對的來源名稱");
+  }
   if (result.epsSources.length < 1) throw new Error("今年 EPS 來源不足");
-  if (result.sources.length < 2) throw new Error("可核對的網路來源不足");
+  if (!result.epsSources.some((item) => String(item.source || item.institution || "").trim())) {
+    throw new Error("今年 EPS 缺少可核對的來源");
+  }
 
   return result;
 }
@@ -207,7 +247,8 @@ function buildPrompt(ticker) {
       "company":"string",
       "relationship":"string",
       "forwardPe":18.5,
-      "source":"來源名稱及資料日期"
+      "source":"來源名稱及資料日期",
+      "url":"https://..."
     }
   ],
   "epsSources": [
@@ -216,7 +257,8 @@ function buildPrompt(ticker) {
       "eps":"幣別 8.50（FY2026）",
       "publishedAt":"YYYY-MM-DD",
       "confidence":"高/中/低",
-      "source":"來源名稱"
+      "source":"來源名稱",
+      "url":"https://..."
     }
   ],
   "sources": [
@@ -249,8 +291,10 @@ async function analyzeStock(ticker, apiKey) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error?.message || `OpenAI API HTTP ${response.status}`);
 
-  const content = payload.choices?.[0]?.message?.content || "";
-  return normalizeAnalysis(parseModelJson(content), ticker);
+  const message = payload.choices?.[0]?.message || {};
+  const content = message.content || "";
+  const annotationSources = extractAnnotationSources(message.annotations);
+  return normalizeAnalysis(parseModelJson(content), ticker, annotationSources);
 }
 
 export default async (req) => {
